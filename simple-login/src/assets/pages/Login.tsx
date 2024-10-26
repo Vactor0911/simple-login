@@ -13,6 +13,7 @@ const Style = styled.div`
   border-radius: 10px;
   box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
   animation: fadeIn 0.25s ease-in-out;
+  z-index: 1;
 
   .container {
     display: flex;

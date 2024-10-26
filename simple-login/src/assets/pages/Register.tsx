@@ -15,6 +15,7 @@ const Style = styled.div`
   box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
   animation: fadeIn 0.25s ease-in-out;
   color: white;
+  z-index: 1;
 
   Button {
     margin-top: 20px;
