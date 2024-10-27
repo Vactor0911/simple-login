@@ -7,7 +7,6 @@ const Style = styled.div`
   display: flex;
   justify-content: space-between;
   width: 780px;
-  height: 400px;
   padding: 35px 40px;
   background-color: #313338;
   border-radius: 10px;
