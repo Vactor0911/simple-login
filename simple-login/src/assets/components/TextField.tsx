@@ -48,10 +48,12 @@ interface TextFieldProps {
   required?: boolean;
   type?: string;
   children?: React.ReactNode;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
 }
 
 const TextField = (props: TextFieldProps) => {
-  const { label, required, type, children } = props;
+  const { className, label, required, type, children, onChange } = props;
 
   return (
     <Style>
@@ -60,7 +62,7 @@ const TextField = (props: TextFieldProps) => {
         {required && <span>*</span>}
       </label>
       <div className="input-wrapper" tabIndex={0}>
-        <input type={type ? type : "text"} required={required} tabIndex={-1} />
+        <input className={className} type={type ? type : "text"} required={required} tabIndex={-1} onChange={onChange} />
       </div>
       {children}
     </Style>

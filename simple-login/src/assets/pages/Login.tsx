@@ -2,6 +2,9 @@ import styled from "@emotion/styled";
 import Button from "../components/Button";
 import TextField from "../components/TextField";
 import ReactIcon from "../../assets/react-icon.svg";
+import { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router";
 
 const Style = styled.div`
   display: flex;
@@ -110,6 +113,38 @@ const Style = styled.div`
 `;
 
 const Login = () => {
+  const [email, setEmail] = useState("");
+  const [passwd, setPasswd] = useState("");
+  const navigateTo = useNavigate();
+
+  const dologin = () => {
+    axios.post("http://localhost:3000/login", {
+        email: email,
+        password: passwd,
+      })
+      .then((response) => {
+        console.log(response);
+        if (response.status !== 200) {
+          navigateTo("/login"); //로그인 실패시 다시 로그인 페이지로 이동
+          alert(
+            "등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다."
+          );
+          return;
+        }
+        alert(`로그인 성공! [${response.data.name}]님 환영합니다!`);
+      })
+      .catch((error) => {
+        switch (error.response.status) {
+          case 400:
+            alert("아이디 또는 비밀번호가 올바르지 않습니다.");
+            break;
+          case 500:
+            alert("서버 오류가 발생했습니다.");
+            break;
+        }
+      });
+  };
+
   return (
     <Style>
       <div className="container left">
@@ -117,9 +152,37 @@ const Login = () => {
           <h2>돌아오신 것을 환영해요!</h2>
           <p>놀라운 기능을 경험해보세요!</p>
         </div>
-        <TextField label="이메일" required />
-        <TextField label="비밀번호" type="password" required />
-        <Button text="로그인" />
+        <TextField
+          label="이메일"
+          required
+          onChange={(e) => {
+            setEmail(e.target.value);
+          }}
+        />
+        <TextField
+          label="비밀번호"
+          type="password"
+          required
+          onChange={(e) => {
+            setPasswd(e.target.value);
+          }}
+        />
+        <Button
+          text="로그인"
+          onClick={() => {
+            if (email === "") {
+              alert("아이디를 입력해주세요.");
+              return;
+            }
+
+            if (passwd === "") {
+              alert("비밀번호를 입력해주세요.");
+              return;
+            }
+
+            dologin();
+          }}
+        />
         <p id="hidden-register">
           계정이 필요하신가요?
           <a href="/register">가입하기</a>
