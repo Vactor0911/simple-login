@@ -5,6 +5,7 @@ import ReactIcon from "../../assets/react-icon.svg";
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router";
+import { Link } from "react-router-dom";
 
 const Style = styled.div`
   display: flex;
@@ -193,7 +194,7 @@ const Login = () => {
         <div className="text-wrapper">
           <h2>계정 생성하기</h2>
           <p>간단한 과정을 통해 새로운 계정을 생성해보세요.</p>
-          <a href="/register">가입하기</a>
+          <Link to="/register">가입하기</Link>
         </div>
       </div>
     </Style>

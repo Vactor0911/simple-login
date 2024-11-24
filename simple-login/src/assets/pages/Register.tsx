@@ -3,7 +3,7 @@ import TextField from "../components/TextField";
 import Button from "../components/Button";
 import { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Style = styled.div`
   display: flex;
@@ -119,7 +119,7 @@ const Register = () => {
             });
         }}
       />
-      <a href="/login">이미 계정이 있으신가요?</a>
+      <Link to="/login">이미 계정이 있으신가요?</Link>
     </Style>
   );
 };

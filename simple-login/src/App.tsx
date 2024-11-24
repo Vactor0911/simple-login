@@ -26,7 +26,7 @@ const Style = styled.div`
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/simple-login/">
       <Style>
         <Routes>
           <Route path="/login" element={<Login />} />
