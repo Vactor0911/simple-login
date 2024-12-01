@@ -186,7 +186,7 @@ const Login = () => {
         />
         <p id="hidden-register">
           계정이 필요하신가요?
-          <a href="/register">가입하기</a>
+          <Link to="/register">가입하기</Link>
         </p>
       </div>
       <div className="container right">
