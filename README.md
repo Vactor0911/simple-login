@@ -1,6 +1,6 @@
 # 🔑 Simple Login 🔒
 
-> 데이터베이스를 공부하며 제작한 간단한 로그인 / 회원가입 사이트! 👉 https://vactor0911.github.io/simple-login/login
+> 데이터베이스를 공부하며 제작한 간단한 로그인 / 회원가입 사이트! 👉 https://vactor0911.github.io/simple-login/
 
 ![메인 화면](https://github.com/user-attachments/assets/76b3d165-1bd5-4239-8d57-49a3de4c7a4f)
 <br />
