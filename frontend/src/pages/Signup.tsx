@@ -77,11 +77,14 @@ const Signup = () => {
       email: values.email,
       password: values.password,
       username: values.username,
-    }).catch((err) => {
-      console.error(err.response.data.message);
-    });
-    console.log("회원가입 성공:", response);
-    navigate("/login");
+    })
+      .then(() => {
+        console.log("회원가입 성공:", response);
+        navigate("/login");
+      })
+      .catch((err) => {
+        console.error(err.response.data.message);
+      });
   }, [navigate, values]);
 
   return (
