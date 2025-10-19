@@ -1,6 +1,6 @@
 # 🔑 Simple Login 🔒
 
-> 데이터베이스를 공부하며 제작한 간단한 로그인 / 회원가입 사이트! 👉 https://vactor0911.github.io/simple-login/
+> 데이터베이스를 공부하며 제작한 간단한 로그인 / 회원가입 사이트!
 
 ![메인 화면](https://github.com/user-attachments/assets/76b3d165-1bd5-4239-8d57-49a3de4c7a4f)
 <br />
@@ -23,20 +23,13 @@ localhost 환경에서 데이터베이스를 활용하여 로그인과 회원가
 
 [![React](https://img.shields.io/badge/REACT-61DAFB?style=for-the-badge&logo=react&logoColor=000)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/VITE-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/guide/)
-[![TypeScript](https://img.shields.io/badge/TYPESCRIPT-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-
 [![NodeJS](https://img.shields.io/badge/NODE.JS-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/en)
-[![JavaScript](https://img.shields.io/badge/JAVASCRIPT-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://www.ecma-international.org/publications-and-standards/standards/ecma-262/)
-[![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-
-[![GithubPages](https://img.shields.io/badge/GITHUB_PAGES-222222?style=for-the-badge&logo=githubpages&logoColor=white)](https://pages.github.com/)
+[![TypeScript](https://img.shields.io/badge/TYPESCRIPT-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MySQL](https://img.shields.io/badge/MariaDB-%23003545?style=for-the-badge&logo=mariadb)](https://mariadb.org/)
 <br />
 <br />
 
 ## 💻 Getting Started
-
-> [!WARNING]
-> 로그인 및 회원가입 기능은 현재 작동하지 않습니다.
 
 ### 로그인
 
