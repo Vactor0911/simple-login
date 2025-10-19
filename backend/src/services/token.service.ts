@@ -117,7 +117,6 @@ export async function revokeAllUserRefreshTokens(userId: string) {
     WHERE user_id = ?`,
     [userId]
   );
-  console.log(`모든 리프레시 토큰이 사용자 ${userId}에 대해 폐기되었습니다.`);
 }
 
 // 저장된 리프레시 토큰 검증

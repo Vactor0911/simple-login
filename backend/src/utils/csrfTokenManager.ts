@@ -32,7 +32,6 @@ class CsrfTokenManager {
       expiresAt,
       createdAt: Date.now(),
     });
-    console.log("[CSRF Token Manager] CSRF 토큰 생성:", this.tokens);
 
     return token;
   }
@@ -140,7 +139,7 @@ class CsrfTokenManager {
   private _stopCleanup() {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
-      console.log("[CSRF Token Manager] Cleanup timer stopped");
+      console.log("[CSRF Token Manager] CSRF 토큰 정리 타이머가 중지되었습니다.");
     }
   }
 }

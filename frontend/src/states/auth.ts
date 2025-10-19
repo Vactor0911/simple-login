@@ -7,5 +7,6 @@ export type UserType = {
 };
 
 export const accessTokenAtom = atom<string | null>(null);
+export const csrfTokenAtom = atom<string | null>(null);
 export const userAtom = atom<UserType | null>(null);
 export const loadingAtom = atom<boolean>(false);

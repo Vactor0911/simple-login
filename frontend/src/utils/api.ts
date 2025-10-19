@@ -6,7 +6,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { jotaiStore } from "../states/jotaiStore";
-import { accessTokenAtom } from "../states/auth";
+import { accessTokenAtom, csrfTokenAtom } from "../states/auth";
 
 // 동시 refresh 제어
 let refreshing = false;
@@ -22,34 +22,49 @@ const resolveWaiters = (token: string | null) => {
   waiters = [];
 };
 
+// 기본 API 인스턴스
 export const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  withCredentials: true, // Refresh 쿠키 / XSRF 쿠키 자동 전송
+  withCredentials: true, // RefreshToken 쿠키 전송
   xsrfCookieName: "XSRF-TOKEN",
   xsrfHeaderName: "X-XSRF-TOKEN",
   headers: { "Content-Type": "application/json" },
 });
 
-// 요청 인터셉터: jotai store에서 Access 토큰을 읽어 Authorization에 적재
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = jotaiStore.get(accessTokenAtom);
+// 인터셉터 미적용 인스턴스 (무한루프 방지용)
+const refreshApi = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  withCredentials: true, // RefreshToken 쿠키 전송
+  xsrfCookieName: "XSRF-TOKEN",
+  xsrfHeaderName: "X-XSRF-TOKEN",
+  headers: { "Content-Type": "application/json" },
+});
 
-  if (token) {
+// 요청 인터셉터
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // Access 토큰 읽기
+  const accessToken = jotaiStore.get(accessTokenAtom);
+  if (accessToken) {
     config.headers = config.headers ?? {};
     (config.headers as AxiosRequestHeaders)[
       "Authorization"
-    ] = `Bearer ${token}`;
+    ] = `Bearer ${accessToken}`;
   }
-  return config;
-});
 
-// refresh 전용 (인터셉터 없음)
-const refreshApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  withCredentials: true,
-  xsrfCookieName: "XSRF-TOKEN",
-  xsrfHeaderName: "X-XSRF-TOKEN",
-  headers: { "Content-Type": "application/json" },
+  // POST, PUT, DELETE에만 CSRF 토큰 추가
+  if (
+    config.method &&
+    ["post", "put", "delete", "patch"].includes(config.method.toLowerCase())
+  ) {
+    const csrfToken = jotaiStore.get(csrfTokenAtom);
+    if (csrfToken) {
+      config.headers = config.headers ?? {};
+      (config.headers as AxiosRequestHeaders)["X-CSRF-TOKEN"] = csrfToken;
+    }
+  }
+
+  // 설정 반환
+  return config;
 });
 
 // 응답 인터셉터: 401 응답이면 1회 refresh 시도
@@ -90,6 +105,12 @@ api.interceptors.response.use(
         // 갱신된 토큰으로 재발송
         original.headers = AxiosHeaders.from(original.headers || {});
         original.headers.set("Authorization", `Bearer ${newToken}`);
+
+        const csrfToken = jotaiStore.get(csrfTokenAtom);
+        if (csrfToken) {
+          original.headers.set("X-CSRF-TOKEN", csrfToken);
+        }
+
         return api.request(original);
       }
 
@@ -98,12 +119,14 @@ api.interceptors.response.use(
         refreshing = true;
 
         // 인터셉터 미적용 인스턴스로 refresh 호출
-        const { data } = await refreshApi.post<{ accessToken: string }>(
-          "/api/auth/refresh"
-        );
+        const { data } = await refreshApi.post<{
+          accessToken: string;
+          csrfToken: string;
+        }>("/api/auth/refresh");
 
         // 갱신된 토큰 저장
         jotaiStore.set(accessTokenAtom, data.accessToken);
+        jotaiStore.set(csrfTokenAtom, data.csrfToken);
 
         // 대기 중인 요청 재발송
         resolveWaiters(data.accessToken);
@@ -124,12 +147,3 @@ api.interceptors.response.use(
     throw err;
   }
 );
-
-// CSRF 쿠키 확보
-export const ensureCsrfCookie = async (): Promise<void> => {
-  try {
-    // await api.get("/api/auth/csrf-token");
-  } catch {
-    // 필요하다면 로그 처리
-  }
-};
