@@ -67,7 +67,7 @@ export async function storeRefreshToken(
 
   // DB에 리프레시 토큰 저장
   await dbPool.execute(
-    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, user_agent, ip)
+    `INSERT INTO refresh_token (user_id, token_hash, expires_at, user_agent, ip)
      VALUES (?, ?, ?, ?, ?)`,
     [userId, tokenHash, expiresAt, userAgent ?? null, ip ?? null]
   );
@@ -82,16 +82,21 @@ export async function rotateRefreshToken(
   ip?: string
 ) {
   // 기존 토큰 레코드 찾고 폐기
-  const [rows] = await dbPool.execute(
-    `SELECT id, token_hash, revoked_at FROM refresh_tokens WHERE user_id = ? AND revoked_at IS NULL ORDER BY id DESC LIMIT 20`,
+  const rows = await dbPool.execute(
+    `SELECT id, token_hash
+    FROM refresh_token
+    WHERE user_id = ?
+    ORDER BY id DESC
+    LIMIT 20`,
     [userId]
   );
 
-  // 요청한 oldToken과 매칭되는 해시를 찾아 revoke
+  // 요청한 oldToken과 매칭되는 해시를 찾아 삭제
   for (const r of rows) {
     if (await verifyTokenHash(oldToken, r.token_hash)) {
       await dbPool.execute(
-        `UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = ?`,
+        `DELETE FROM refresh_token
+        WHERE id = ?`,
         [r.id]
       );
       break;
@@ -108,7 +113,8 @@ export async function rotateRefreshToken(
 // 모든 리프레시 토큰 폐기
 export async function revokeAllUserRefreshTokens(userId: string) {
   await dbPool.execute(
-    `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL`,
+    `DELETE FROM refresh_token
+    WHERE user_id = ?`,
     [userId]
   );
 }
@@ -118,11 +124,11 @@ export async function validateStoredRefreshToken(
   token: string,
   userId: string
 ) {
-  // 유효한(만료/폐기되지 않은) 토큰 중 일치하는지 검사
-  const [rows] = await dbPool.execute(
-    `SELECT id, token_hash, expires_at, revoked_at
-     FROM refresh_tokens
-     WHERE user_id = ? AND revoked_at IS NULL AND expires_at > NOW()
+  // 유효한 토큰 중 일치하는지 검사
+  const rows = await dbPool.execute(
+    `SELECT id, token_hash, expires_at
+     FROM refresh_token
+     WHERE user_id = ? AND expires_at > NOW()
      ORDER BY id DESC LIMIT 50`,
     [userId]
   );

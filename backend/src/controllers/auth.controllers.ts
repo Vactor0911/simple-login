@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { CookieOptions, Request, Response } from "express";
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "../utils/password";
 import {
@@ -19,7 +19,7 @@ import { dbPool } from "../config/db";
 const registerSchema = z.object({
   email: z.email(),
   password: z.string().min(8),
-  name: z.string().min(1).max(100),
+  username: z.string().min(1).max(100),
 });
 
 // 로그인 스키마
@@ -29,11 +29,13 @@ const loginSchema = z.object({
 });
 
 // 리프레시 토큰 쿠키 설정
-function setRefreshCookie(res: Response, token: string) {
+const setRefreshCookie = (res: Response, token: string) => {
   const decoded = ((): any => {
     // 만료일 계산을 위해 decode 사용(보안 영향 없음)
     const parts = token.split(".");
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) {
+      return null;
+    }
     try {
       return JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
     } catch {
@@ -46,13 +48,13 @@ function setRefreshCookie(res: Response, token: string) {
 
   // 쿠키 설정
   res.cookie(config.cookie.name, token, {
-    httpOnly: true,
+    httpOnly: config.cookie.httpOnly,
     secure: config.cookie.secure,
-    sameSite: "none",
+    sameSite: config.cookie.sameSite,
     path: config.cookie.path,
     maxAge: maxAgeMs,
-  });
-}
+  } as CookieOptions);
+};
 
 // 컨트롤러 구현
 export const AuthController = {
@@ -60,21 +62,19 @@ export const AuthController = {
   signup: async (req: Request, res: Response) => {
     // 요청 데이터 검증
     const parsed = registerSchema.safeParse(req.body);
-    if (!parsed.success)
+    if (!parsed.success) {
       return res.status(400).json({
-        message: "Invalid input",
-        errors: z.treeifyError(parsed.error),
+        message: "올바르지 않은 요청입니다.",
       });
+    }
 
     // 요청 데이터 추출
-    const { email, password, name } = parsed.data;
+    const { email, password, username } = parsed.data;
 
     // 이메일 중복 체크
-    const [exists] = await dbPool.execute(
-      "SELECT id FROM user WHERE email = ?",
-      [email]
-    );
-
+    const exists = await dbPool.execute("SELECT id FROM user WHERE email = ?", [
+      email,
+    ]);
     if (exists && (exists as any[]).length > 0) {
       return res.status(409).json({ message: "이미 등록된 이메일입니다." });
     }
@@ -82,10 +82,11 @@ export const AuthController = {
     // 사용자 생성
     const hashedPassword = await hashPassword(password);
     const result = await dbPool
-      .execute(
-        "INSERT INTO user (email, password_hash, name) VALUES (?, ?, ?)",
-        [email, hashedPassword, name]
-      )
+      .execute("INSERT INTO user (email, password, name) VALUES (?, ?, ?)", [
+        email,
+        hashedPassword,
+        username,
+      ])
       .catch((err) => {
         switch (err.code) {
           case "ER_DUP_ENTRY":
@@ -93,19 +94,20 @@ export const AuthController = {
               .status(409)
               .json({ message: "이미 등록된 이메일입니다." });
           default:
-            break;
+            return res
+              .status(400)
+              .json({ message: "회원가입에 실패했습니다." });
         }
-        throw err;
       });
-    const userId = (result as any).insertId;
+    const userId = (result as any).insertId.toString();
 
     // 토큰 발급
-    const accessToken = signAccessToken(userId.toString(), email);
-    const refreshToken = signRefreshToken(userId.toString(), email);
+    const accessToken = signAccessToken(userId, email);
+    const refreshToken = signRefreshToken(userId, email);
 
     // 리프레시 토큰 저장 및 쿠키 설정
     await storeRefreshToken(
-      userId.toString(),
+      userId,
       refreshToken,
       req.headers["user-agent"],
       req.ip
@@ -116,7 +118,7 @@ export const AuthController = {
     return res.status(201).json({
       message: "회원가입이 완료되었습니다.",
       accessToken,
-      user: { id: userId.toString(), email, name },
+      user: { id: userId, email, name: username },
     });
   },
 
@@ -124,29 +126,30 @@ export const AuthController = {
   login: async (req: Request, res: Response) => {
     // 요청 데이터 검증
     const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success)
+    if (!parsed.success) {
       return res.status(400).json({
         message: "올바르지 않은 요청입니다.",
-        errors: z.treeifyError(parsed.error),
       });
+    }
 
     // 사용자 조회
     const { email, password } = parsed.data;
     const rows = await dbPool.execute(
-      "SELECT id, password_hash, name FROM user WHERE email = ?",
+      "SELECT id, password, name FROM user WHERE email = ?",
       [email]
     );
     const user = (rows as any[])[0];
 
-    // 사용자 존재 및 비밀번호 검증
+    // 사용자 존재 여부 검증
     if (!user) {
       return res
         .status(401)
         .json({ message: "올바르지 않은 이메일 또는 비밀번호입니다." });
     }
 
-    const ok = await verifyPassword(password, user.password_hash);
-    if (!ok) {
+    // 비밀번호 검증
+    const isVerified = await verifyPassword(password, user.password);
+    if (!isVerified) {
       return res
         .status(401)
         .json({ message: "올바르지 않은 이메일 또는 비밀번호입니다." });
@@ -165,9 +168,17 @@ export const AuthController = {
     );
     setRefreshCookie(res, refreshToken);
 
+    // 마지막 로그인 시간 업데이트
+    const result = await dbPool.execute(
+      `UPDATE user
+      SET last_login_at = NOW()
+      WHERE id = ?`,
+      [user.id]
+    );
+
     // 성공 응답
     return res.json({
-      message: "성공적으로 로그인되었습니다!",
+      message: "성공적으로 로그인되었습니다.",
       accessToken,
       user: { id: user.id.toString(), email, name: user.name },
     });
@@ -175,17 +186,20 @@ export const AuthController = {
 
   // 토큰 갱신
   refresh: async (req: Request, res: Response) => {
+    // 쿠키에서 리프레시 토큰 추출
     const token = req.cookies?.[config.cookie.name];
-    if (!token)
-      return res.status(401).json({ message: "리프레시 토큰이 없습니다." });
+    if (!token) {
+      return res.status(401).json({ message: "토큰이 존재하지 않습니다." });
+    }
 
+    // 토큰 검증
     let payload: JwtPayload;
     try {
       payload = verifyRefreshToken(token);
     } catch {
       return res
         .status(401)
-        .json({ message: "유효하지 않거나 만료된 리프레시 토큰입니다." });
+        .json({ message: "유효하지 않거나 만료된 토큰입니다." });
     }
 
     // DB에 저장된 토큰인지 검증
@@ -193,7 +207,7 @@ export const AuthController = {
     if (!valid)
       return res
         .status(401)
-        .json({ message: "유효하지 않은 리프레시 토큰입니다." });
+        .json({ message: "유효하지 않거나 만료된 토큰입니다." });
 
     // 이전 토큰 파기 후 새 리프레시 토큰 발급
     const newRefresh = await rotateRefreshToken(
@@ -218,7 +232,10 @@ export const AuthController = {
 
   // 로그아웃
   logout: async (req: Request, res: Response) => {
+    // 쿠키에서 리프레시 토큰 추출
     const token = req.cookies?.[config.cookie.name];
+
+    // 토큰이 있으면 DB에서 모두 폐기
     if (token) {
       try {
         const payload: JwtPayload = verifyRefreshToken(token);
@@ -227,6 +244,8 @@ export const AuthController = {
         // 토큰이 이미 만료/변조라도 쿠키만 삭제
       }
     }
+
+    // 쿠키 삭제
     res.clearCookie(config.cookie.name, { path: config.cookie.path });
     return res.json({ message: "로그아웃되었습니다." });
   },
