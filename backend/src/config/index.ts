@@ -10,7 +10,7 @@ export const config = {
     refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES!,
   },
   cookie: {
-    name: process.env.COOKIE_NAME ?? "refreshToken",
+    name: process.env.REFRESH_COOKIE_NAME ?? "refresh_token",
     secure: true,
     sameSite: "none",
     httpOnly: true,

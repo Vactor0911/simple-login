@@ -14,6 +14,7 @@ import {
 import { config } from "../config";
 import type { AuthRequest } from "../middleware/auth";
 import { dbPool } from "../config/db";
+import { csrfTokenManager } from "../utils/csrfTokenManager";
 
 // 회원가입 검증 스키마
 const registerSchema = z.object({
@@ -102,8 +103,10 @@ export const AuthController = {
     const userId = (result as any).insertId.toString();
 
     // 토큰 발급
+
     const accessToken = signAccessToken(userId, email);
     const refreshToken = signRefreshToken(userId, email);
+    const csrfToken = csrfTokenManager.generateToken(userId);
 
     // 리프레시 토큰 저장 및 쿠키 설정
     await storeRefreshToken(
@@ -118,6 +121,7 @@ export const AuthController = {
     return res.status(201).json({
       message: "회원가입이 완료되었습니다.",
       accessToken,
+      csrfToken,
       user: { id: userId, email, name: username },
     });
   },
@@ -158,6 +162,7 @@ export const AuthController = {
     // 토큰 발급
     const accessToken = signAccessToken(user.id.toString(), email);
     const refreshToken = signRefreshToken(user.id.toString(), email);
+    const csrfToken = csrfTokenManager.generateToken(user.id.toString());
 
     // 리프레시 토큰 저장 및 쿠키 설정
     await storeRefreshToken(
@@ -169,7 +174,7 @@ export const AuthController = {
     setRefreshCookie(res, refreshToken);
 
     // 마지막 로그인 시간 업데이트
-    const result = await dbPool.execute(
+    await dbPool.execute(
       `UPDATE user
       SET last_login_at = NOW()
       WHERE id = ?`,
@@ -180,6 +185,7 @@ export const AuthController = {
     return res.json({
       message: "성공적으로 로그인되었습니다.",
       accessToken,
+      csrfToken,
       user: { id: user.id.toString(), email, name: user.name },
     });
   },
@@ -203,25 +209,33 @@ export const AuthController = {
     }
 
     // DB에 저장된 토큰인지 검증
-    const valid = await validateStoredRefreshToken(token, payload.userId);
-    if (!valid)
+    const isRefreshTokenValid = await validateStoredRefreshToken(
+      token,
+      payload.userId
+    );
+    if (!isRefreshTokenValid)
       return res
         .status(401)
         .json({ message: "유효하지 않거나 만료된 토큰입니다." });
 
     // 이전 토큰 파기 후 새 리프레시 토큰 발급
-    const newRefresh = await rotateRefreshToken(
+    const newRefreshToken = await rotateRefreshToken(
       token,
       payload.userId,
       payload.email,
       req.headers["user-agent"],
       req.ip
     );
-    setRefreshCookie(res, newRefresh);
+    setRefreshCookie(res, newRefreshToken);
 
     // 새 액세스 토큰 발급
-    const newAccess = signAccessToken(payload.userId, payload.email);
-    return res.json({ accessToken: newAccess });
+    const newAccessToken = signAccessToken(payload.userId, payload.email);
+
+    // 새 CSRF 토큰 발급
+    const newCsrfToken = csrfTokenManager.refreshToken(payload.userId);
+
+    // 성공 응답
+    return res.json({ accessToken: newAccessToken, csrfToken: newCsrfToken });
   },
 
   // 내 정보 조회
@@ -239,14 +253,22 @@ export const AuthController = {
     if (token) {
       try {
         const payload: JwtPayload = verifyRefreshToken(token);
+
+        // 모든 리프레시 토큰 폐기
         await revokeAllUserRefreshTokens(payload.userId);
+
+        // CSRF 토큰 삭제
+        csrfTokenManager.deleteToken(payload.userId);
       } catch {
         // 토큰이 이미 만료/변조라도 쿠키만 삭제
+        console.warn("로그아웃 시도 중 유효하지 않은 토큰 발견.");
       }
     }
 
     // 쿠키 삭제
     res.clearCookie(config.cookie.name, { path: config.cookie.path });
+
+    // 성공 응답
     return res.json({ message: "로그아웃되었습니다." });
   },
 };
