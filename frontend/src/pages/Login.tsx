@@ -3,6 +3,16 @@ import PageWrapper from "../components/PageWrapper";
 import LabeledTextField from "../components/LabeledTextField";
 import ReactLogo from "../assets/react.svg";
 import { Link } from "react-router";
+import z from "zod";
+import { useCallback, useState } from "react";
+import { login } from "../services/auth";
+import { AxiosError } from "axios";
+
+const LoginSchema = z.object({
+  email: z.email("유효한 이메일 주소를 입력해주세요."),
+  password: z.string().min(8, "비밀번호는 최소 8자 이상이어야 합니다."),
+});
+type LoginFormData = z.infer<typeof LoginSchema>;
 
 const SpinAnimation = keyframes`
   0% {
@@ -14,6 +24,35 @@ const SpinAnimation = keyframes`
 `;
 
 const Login = () => {
+  const [values, setValues] = useState<LoginFormData>({
+    email: "",
+    password: "",
+  });
+
+  // 로그인 버튼 클릭
+  const handleLoginButtonClick = useCallback(async () => {
+    // 폼 유효성 검증
+    const result = LoginSchema.safeParse(values);
+    if (!result.success) {
+      return;
+    }
+
+    // 로그인 API 호출
+    try {
+      const response = await login({
+        email: values.email,
+        password: values.password,
+      });
+
+      console.log("로그인 성공:", response);
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        console.error("- 상태 코드:", err.response?.status);
+        console.error("- 에러 메시지:", err.response?.data?.message);
+      }
+    }
+  }, [values]);
+
   return (
     <PageWrapper
       sx={{
@@ -47,13 +86,29 @@ const Login = () => {
           </Stack>
 
           {/* 이메일 입력란 */}
-          <LabeledTextField label="이메일" type="email" required />
+          <LabeledTextField
+            label="이메일"
+            type="email"
+            required
+            value={values.email}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, email: e.target.value }))
+            }
+          />
 
           {/* 비밀번호 입력란 */}
-          <LabeledTextField label="비밀번호" type="password" required />
+          <LabeledTextField
+            label="비밀번호"
+            type="password"
+            required
+            value={values.password}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, password: e.target.value }))
+            }
+          />
 
           {/* 로그인 버튼 */}
-          <Button variant="contained">
+          <Button variant="contained" onClick={handleLoginButtonClick}>
             <Typography variant="subtitle1" fontWeight="bold">
               로그인
             </Typography>

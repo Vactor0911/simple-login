@@ -40,6 +40,7 @@ export const login = async (req: LoginRequest) => {
   jotaiStore.set(csrfTokenAtom, data.csrfToken);
 
   // await fetchMe();
+  return data;
 };
 
 // 내 정보 조회

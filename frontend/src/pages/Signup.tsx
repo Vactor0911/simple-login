@@ -5,15 +5,16 @@ import { Link, useNavigate } from "react-router";
 import { useCallback, useState } from "react";
 import z from "zod";
 import { signup } from "../services/auth";
+import { AxiosError } from "axios";
 
-const isLoginSchema = z
+const SignupSchema = z
   .object({
     email: z.email("유효한 이메일 주소를 입력해주세요."),
     username: z.string().min(1, "사용자명을 입력해주세요."),
     password: z.string().min(8, "비밀번호는 최소 8자 이상이어야 합니다."),
     passwordConfirm: z
       .string()
-      .min(8, "비밀번호 확인은 최소 8자 이상이어야 합니다."),
+      .min(8, "비밀번호는 최소 8자 이상이어야 합니다."),
   })
   .superRefine(({ password, passwordConfirm }, ctx) => {
     if (password !== passwordConfirm) {
@@ -24,33 +25,41 @@ const isLoginSchema = z
       });
     }
   });
-
-type LoginFormData = z.infer<typeof isLoginSchema>;
+type SignupFormData = z.infer<typeof SignupSchema>;
 
 const Signup = () => {
   const navigate = useNavigate();
 
-  const [values, setValues] = useState<LoginFormData>({
+  const [values, setValues] = useState<SignupFormData>({
     email: "",
     username: "",
     password: "",
     passwordConfirm: "",
   });
   const [errors, setErrors] = useState<
-    Partial<Record<keyof LoginFormData, string>>
+    Partial<Record<keyof SignupFormData, string>>
   >({});
 
   // 각 필드 블러 시 입력값 검증
   const handleBlur = useCallback(
-    (field: keyof LoginFormData) => {
-      // 해당 필드만 검증
-      const fieldSchema = isLoginSchema.shape[field];
-      const result = fieldSchema.safeParse(values[field]);
+    (field: keyof SignupFormData) => {
+      // 전체 폼을 검증하여 superRefine도 실행
+      const result = SignupSchema.safeParse(values);
+
       if (!result.success) {
-        setErrors((prev) => ({
-          ...prev,
-          [field]: result.error.issues[0].message,
-        }));
+        // 현재 필드와 관련된 에러만 찾기
+        const fieldError = result.error.issues.find(
+          (issue) => issue.path[0] === field
+        );
+
+        if (fieldError) {
+          setErrors((prev) => ({
+            ...prev,
+            [field]: fieldError.message,
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, [field]: undefined }));
+        }
       } else {
         setErrors((prev) => ({ ...prev, [field]: undefined }));
       }
@@ -61,30 +70,34 @@ const Signup = () => {
   // 회원가입 버튼 클릭
   const handleSubmitButtonClick = useCallback(async () => {
     // 폼 유효성 검증
-    const result = isLoginSchema.safeParse(values);
+    const result = SignupSchema.safeParse(values);
     if (!result.success) {
       // 에러 메시지 추출
-      const fieldErrors: Partial<Record<keyof LoginFormData, string>> = {};
+      const fieldErrors: Partial<Record<keyof SignupFormData, string>> = {};
       result.error.issues.forEach((err) => {
-        const field = err.path[0] as keyof LoginFormData;
+        const field = err.path[0] as keyof SignupFormData;
         fieldErrors[field] = err.message;
       });
       setErrors(fieldErrors);
       return;
     }
 
-    const response = await signup({
-      email: values.email,
-      password: values.password,
-      username: values.username,
-    })
-      .then(() => {
-        console.log("회원가입 성공:", response);
-        navigate("/login");
-      })
-      .catch((err) => {
-        console.error(err.response.data.message);
+    // 회원가입 API 호출
+    try {
+      const response = await signup({
+        email: values.email,
+        password: values.password,
+        username: values.username,
       });
+
+      console.log("회원가입 성공:", response);
+      navigate("/login");
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        console.error("- 상태 코드:", err.response?.status);
+        console.error("- 에러 메시지:", err.response?.data?.message);
+      }
+    }
   }, [navigate, values]);
 
   return (
